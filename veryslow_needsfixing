@@ -1,0 +1,156 @@
+import pandas as pd
+import pylab as pl
+import numpy as np
+import string
+import re
+import sys
+import profile
+
+##Returns all names to lowercase letters
+def lowercase(name):
+    return name.lower()
+    
+##Gets rid of any extra or excess white space at ends and middle
+def no_spaces(name):
+    name = name.lstrip()
+    name = name.strip()
+    name = " ".join(name.split())
+    return name
+    
+##Gets rid of legal control terms and punctuation
+def no_legal(name):
+    name = name.translate(None, string.punctuation)
+    legal_terms = ["inc", "corporation", "llc", "corp", "co", "incorporated", "company", "group", "and", "its", "subsidiaries", "plc", "llp", "all", 'global', 'ltd', 'solutions']
+    for item in legal_terms:
+       end = len(name)
+       filter = len(item)
+       if name.endswith(' ' +item):
+           name = name[:end-filter]
+       if name.startswith(item + ' '):
+           name = name[len(item)+1:end-1]
+       term = ' ' + item + ' '
+       middle = name.find(term)
+       if middle != -1:
+           name = name[0:middle] + " " + name[middle+filter+1:end-1]
+    name = no_spaces(name)
+    return name
+    
+##Expands company abbreviations into full company names
+def check_abbrev(name):
+    abbreviations = dict([('ibm', 'international business machines'), ('bofa', 'bank of america'), ('pwc', 'pricewaterhousecoopers')])
+    abbreviations['cme'] = 'chicago mercantile exchange'
+    abbreviations['hp'] = 'hewlett packard'
+    abbreviations['ge'] = 'general electric'
+    abbreviations['gm'] = 'general motors'
+    abbreviations['fca'] = 'fiat chrysler automotive'
+    abbreviations['ups'] = 'united parcel service'
+    abbreviations['usps'] = 'united states postal service'
+    abbreviations['ti'] = 'texas instruments'
+    abbreviations['ni'] = 'national instruments'
+    abbreviations['mlb'] = 'major league baseball'
+    abbreviations['nfl'] = 'national football league'
+    abbreviations['nba'] = 'national basketball association'
+    abbreviations['nhl'] = 'national hockey league'
+    abbreviations['fannie mae'] = 'federal national mortgage association' 
+    abbreviations['freddie mac'] ='federal home loan mortgage'
+    for key in abbreviations:
+        if(name == key):
+            name = abbreviations[key]
+    return name
+
+##Splits string into bigrams (sets of 2 letters)
+def bigrams(name):
+    out = set()
+    for i in range(len(name)):
+        out.add(name[i:i+2])
+    return out
+    
+##Calculates the Jaccard Index for bigrams of a pair of names
+def jaccard(name1, name2):
+    #Base Case: same string
+    if(name1 == name2):
+        return 1
+    #Ensure name2 is always shorter than name1
+    if(len(name1) < len(name2)):
+        tmp = name2
+        name2 = name1
+        name1 = tmp
+    #if(len(name1) > 2*len(name2)):
+        #return -1
+    cardinality_check = (len(name2)-1)/(float(len(name1)-1))
+    if(cardinality_check >= 0.5):
+        bigram1 = bigrams(name1)
+        bigram2 = bigrams(name2)
+        n = len(bigram1.intersection(bigram2))
+        return n/(float(len(bigram1) + len(bigram2) - n))
+    else:
+        words = name1.split()
+        if len(name2) < 4:
+            return (name1 == name2)
+        if name2 in name1:
+            return 1
+        for item in words:
+            if(item == name2):
+                return 1
+        return -1
+#Read in file as dataframe        
+def main():
+    pass
+    df = pd.read_csv("cyber_names_to_match.csv")
+    #Convert The Dictionary column type to string
+    df['The Dictionary'].astype(basestring)
+    dict_names = df.loc[1:83542, 'The Dictionary']
+    df['Still Unmatched'].astype(basestring)
+    unmatched = df.loc[1:27388, 'Still Unmatched']
+    #Convert dict_names to a list called names
+    names = dict_names.tolist()
+    matches = unmatched.tolist()
+    #f = open('out.txt', 'w')
+    #sys.stdout = f
+    i = 0
+    for name1 in matches:
+        j = 0
+        index = []
+        indexm = []
+        for name2 in names:
+            name1 = lowercase(name1)
+            name2 = lowercase(name2)
+            name1 = no_spaces(name1)
+            name2 = no_spaces(name2)
+            name1 = no_legal(name1)
+            name2 = no_legal(name2)
+            name1 = check_abbrev(name1)
+            name2 = check_abbrev(name2)
+            value = jaccard(name1, name2)
+            if(value > 0.4):
+                if(value < 0.7):
+                    indexm.append(j)
+                else:    
+                    index.append(j)
+            j += 1
+        #for z in indexm:
+            #name3 = names[z]
+            #name4 = name1
+            #len4 = len(name4)
+            #len3 = len(name1)
+            #i3 = z
+            #Always make len3 the smallest length
+            #if(len4 < len3):
+                #tmp = name4
+                #name4 = name3`
+                #name3 = tmp
+            #len4 = len(name4)
+            #len3 = len(name3)
+            #value1 = jaccard(name3[0:len3/2], name4[0:len3/2])
+            #value2 = jaccard(name3[len3/2:len3-1], name4[len3/2:len3-1])
+            #if((value1 > 0.7) and (value2 > 0.7)):
+                #index.append(i3)
+        #print "Unmatched name\t\t\tMatches in Dictionary\t\t\tPossible Matches"
+        #print name1
+        #for i1, i2 in zip(index, indexm):
+            #print "            \t\t\t", names[i1],
+            #print "                     \t\t", names[i2] 
+        i += 1
+    #f.close()
+if __name__ == "__main__":
+    main()
